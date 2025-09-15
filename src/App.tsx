@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { FileText, Zap, User, Clipboard } from 'lucide-react';
-import flowaiLogo from './flowai-logo.png';
 import { FileUpload } from './components/FileUpload';
 import { ResponseDisplay } from './components/ResponseDisplay';
 import { UploadState } from './types';
@@ -15,11 +14,18 @@ function App() {
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <img 
-                src={flowaiLogo} 
+              {/* Option 1: Use image from public directory */}
+              {/* <img 
+                src="/flowai-logo.png" 
                 alt="FlowAI Logo" 
                 className="h-10 w-auto"
-              />
+              /> */}
+              
+              {/* Option 2: CSS-based logo placeholder */}
+              <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-xl">F</span>
+              </div>
+              
               <h1 className="text-2xl font-bold text-gray-900">
                 Document Processor
               </h1>
