@@ -7,12 +7,10 @@ import { UploadState } from './types';
 
 function App() {
   const [uploadState, setUploadState] = useState<UploadState | null>(null);
-  const [zapierWebhookUrl, setZapierWebhookUrl] = useState('');
+  const [zapierWebhookUrl, setZapierWebhookUrl] = useState('https://hooks.zapier.com/hooks/catch/24583493/umd3a4g/');
 
   const handleWebhookUrlChange = (url: string) => {
     setZapierWebhookUrl(url);
-    // Update the webhook URL in the zapier integration utility
-    // This would require modifying the utility to accept dynamic URLs
   };
 
   return (

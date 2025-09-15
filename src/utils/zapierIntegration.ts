@@ -55,7 +55,7 @@ interface ZapierPayload {
 }
 
 export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean; error?: string }> => {
-  const ZAPIER_WEBHOOK_URL = localStorage.getItem('zapier_webhook_url') || '';
+  const ZAPIER_WEBHOOK_URL = localStorage.getItem('zapier_webhook_url') || 'https://hooks.zapier.com/hooks/catch/24583493/umd3a4g/';
   
   if (!ZAPIER_WEBHOOK_URL) {
     return { success: false, error: 'Zapier webhook URL not configured' };

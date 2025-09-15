@@ -7,7 +7,7 @@ interface ZapierConfigProps {
 
 export const ZapierConfig: React.FC<ZapierConfigProps> = ({ onWebhookUrlChange }) => {
   const [webhookUrl, setWebhookUrl] = useState(
-    localStorage.getItem('zapier_webhook_url') || ''
+    localStorage.getItem('zapier_webhook_url') || 'https://hooks.zapier.com/hooks/catch/24583493/umd3a4g/'
   );
   const [isExpanded, setIsExpanded] = useState(false);
 
