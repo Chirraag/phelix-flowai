@@ -2,10 +2,18 @@ import React, { useState } from 'react';
 import { FileText, Zap, User, Clipboard } from 'lucide-react';
 import { FileUpload } from './components/FileUpload';
 import { ResponseDisplay } from './components/ResponseDisplay';
+import { ZapierConfig } from './components/ZapierConfig';
 import { UploadState } from './types';
 
 function App() {
   const [uploadState, setUploadState] = useState<UploadState | null>(null);
+  const [zapierWebhookUrl, setZapierWebhookUrl] = useState('');
+
+  const handleWebhookUrlChange = (url: string) => {
+    setZapierWebhookUrl(url);
+    // Update the webhook URL in the zapier integration utility
+    // This would require modifying the utility to accept dynamic URLs
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -15,7 +23,7 @@ function App() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <img 
-                src="/flowai-logo.png" 
+                src="./public/flowai-logo.png" 
                 alt="FlowAI Logo" 
                 className="h-10 w-auto"
               />
@@ -45,6 +53,8 @@ function App() {
         <div className="space-y-8">
           {/* Upload Section */}
           <section>
+            <ZapierConfig onWebhookUrlChange={handleWebhookUrlChange} />
+            
             <div className="text-center mb-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-2">
                 Upload Document for Analysis

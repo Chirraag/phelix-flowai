@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, File, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
 import { UploadState, ApiResponse } from '../types';
+import { sendToZapier } from '../utils/zapierIntegration';
 
 const ACCEPTED_FILE_TYPES = [
   'application/pdf',
@@ -30,7 +31,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
     progress: 0,
     success: false,
     error: null,
-    response: null
+    response: null,
+    zapierSent: false,
+    zapierError: null
   });
 
   const updateUploadState = useCallback((newState: Partial<UploadState>) => {
@@ -59,7 +62,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
     }
     
     setSelectedFile(file);
-    updateUploadState({ error: null, success: false, response: null });
+    updateUploadState({ error: null, success: false, response: null, zapierSent: false, zapierError: null });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -97,7 +100,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
       progress: 0, 
       error: null, 
       success: false,
-      response: null 
+      response: null,
+      zapierSent: false,
+      zapierError: null
     });
 
     try {
@@ -173,6 +178,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
           success: true,
           response: { success: true, data: finalResult.result }
         });
+        
+        // Send to Zapier after successful processing
+        sendDataToZapier(finalResult);
       }, 500);
 
     } catch (error) {
@@ -184,6 +192,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
     }
   };
 
+  const sendDataToZapier = async (apiResponse: any) => {
+    try {
+      const zapierResult = await sendToZapier(apiResponse);
+      
+      if (zapierResult.success) {
+        updateUploadState({ zapierSent: true, zapierError: null });
+      } else {
+        updateUploadState({ zapierSent: false, zapierError: zapierResult.error || 'Failed to send to Zapier' });
+      }
+    } catch (error) {
+      updateUploadState({ 
+        zapierSent: false, 
+        zapierError: error instanceof Error ? error.message : 'Failed to send to Zapier' 
+      });
+    }
+  };
+
   const resetUpload = () => {
     setSelectedFile(null);
     onUploadStateChange({
@@ -191,14 +216,18 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
       progress: 0,
       success: false,
       error: null,
-      response: null
+      response: null,
+      zapierSent: false,
+      zapierError: null
     });
     setUploadState({
       uploading: false,
       progress: 0,
       success: false,
       error: null,
-      response: null
+      response: null,
+      zapierSent: false,
+      zapierError: null
     });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -273,6 +302,26 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
             <h3 className="text-lg font-semibold text-green-800 mb-2">Document Processed Successfully!</h3>
             <p className="text-green-600">{selectedFile?.name}</p>
             <p className="text-sm text-gray-600 mt-2">View the extracted data below</p>
+            
+            {/* Zapier Status */}
+            <div className="mt-4 p-3 rounded-lg bg-blue-50">
+              {uploadState.zapierSent ? (
+                <div className="flex items-center justify-center gap-2 text-blue-700">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">Data sent to Zapier successfully</span>
+                </div>
+              ) : uploadState.zapierError ? (
+                <div className="flex items-center justify-center gap-2 text-red-700">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">Zapier error: {uploadState.zapierError}</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-gray-600">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Sending to Zapier...</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

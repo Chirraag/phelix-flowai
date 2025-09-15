@@ -11,4 +11,6 @@ export interface UploadState {
   success: boolean;
   error: string | null;
   response: ApiResponse | null;
+  zapierSent: boolean;
+  zapierError: string | null;
 }
