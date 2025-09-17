@@ -4,8 +4,7 @@ interface ZapierPayload {
   type_confidence: number;
   
   // Document Metadata
-  document_name: string; // Original uploaded file name
-  document_name: string;
+  document_name_upload: string; // Original uploaded file name
   document_number: number; // Which document in the multi-document response (1, 2, 3, etc.)
   pages_range: string; // e.g., "Page 1-21"
   patient_number: number; // Patient number within the document (1, 2, 3, etc.)
@@ -75,7 +74,8 @@ export const sendToZapier = async (apiResponse: any, originalFileName: string): 
         const documentData = result[documentKey];
         if (documentData && documentData.result) {
           const documentNumber = parseInt(documentKey.replace('Document-', ''));
-          const payload = buildZapierPayload(documentData.result, documentNumber, pagesRange as string);
+          const timestamp = new Date().toISOString();
+          const payload = buildZapierPayload(documentData.result, documentNumber, pagesRange as string, originalFileName, timestamp, 1);
           
           const response = await fetch(FLOWAI_API_URL, {
             method: 'POST',
@@ -86,7 +86,7 @@ export const sendToZapier = async (apiResponse: any, originalFileName: string): 
           });
           
           if (!response.ok) {
-            throw new Error(`Zapier webhook failed for ${documentKey}: ${response.status} ${response.statusText}`);
+            throw new Error(`FlowAI API failed for ${documentKey}: ${response.status} ${response.statusText}`);
           }
           
           results.push({ document: documentKey, success: true });
@@ -96,7 +96,8 @@ export const sendToZapier = async (apiResponse: any, originalFileName: string): 
       return { success: true };
     } else {
       // Single document response (legacy format)
-      const payload = buildZapierPayload(result, 1, 'Page 1');
+      const timestamp = new Date().toISOString();
+      const payload = buildZapierPayload(result, 1, 'Page 1', originalFileName, timestamp, 1);
       
       const response = await fetch(FLOWAI_API_URL, {
         method: 'POST',
@@ -114,7 +115,7 @@ export const sendToZapier = async (apiResponse: any, originalFileName: string): 
     }
     
   } catch (error) {
-    console.error('Error sending to Zapier:', error);
+    console.error('Error sending to FlowAI:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'FlowAI API error occurred' 
@@ -140,7 +141,7 @@ const buildZapierPayload = (
     type_confidence: parseFloat(documentData.document_type?.overall?.confidence || '0'),
     
     // Document Metadata
-    document_name: originalFileName,
+    document_name_upload: originalFileName,
     document_number: documentNumber,
     pages_range: pagesRange,
     patient_number: patientNumber,

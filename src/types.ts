@@ -14,3 +14,16 @@ export interface UploadState {
   zapierSent: boolean;
   zapierError: string | null;
 }
+
+export interface ZapierPayload {
+  // Document Classification
+  type: string;
+  type_confidence: number;
+  
+  // Document Metadata
+  document_name_upload: string; // Original uploaded file name
+  document_number: number; // Which document in the multi-document response (1, 2, 3, etc.)
+  pages_range: string; // e.g., "Page 1-21"
+  patient_number: number; // Patient number within the document (1, 2, 3, etc.)
+  timestamp: string; // ISO timestamp when processed
+}
