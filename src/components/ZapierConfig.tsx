@@ -69,8 +69,10 @@ export const ZapierConfig: React.FC<ZapierConfigProps> = ({ onWebhookUrlChange }
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="font-medium text-gray-800 mb-2">Data Fields Sent to Zapier:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+              <div>• Document Name (Original File)</div>
               <div>• Document Type & Confidence</div>
               <div>• Document Number & Pages Range</div>
+              <div>• Patient Number & Timestamp</div>
               <div>• Patient Name & Confidence</div>
               <div>• Phone Number & Confidence</div>
               <div>• Address Fields & Confidence</div>
