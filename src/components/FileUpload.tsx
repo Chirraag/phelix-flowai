@@ -146,8 +146,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
             const pollData = await pollResponse.json();
             
             // Update progress based on polling attempts
-            const progress = Math.min(25 + (attempts / maxAttempts) * 70, 95);
+            const progress = Math.min(25 + (attempts / maxAttempts) * 70, 90);
             updateUploadState({ progress });
+
+            // Show more detailed status updates
+            if (attempts % 12 === 0) { // Every minute
+              console.log(`Still processing... ${Math.round(progress)}% complete`);
+            }
 
             if (pollData.status === 'success') {
               return pollData;
