@@ -8,6 +8,7 @@ interface ResponseDisplayProps {
 
 export const ResponseDisplay: React.FC<ResponseDisplayProps> = ({ response }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['main']));
+  const [expandedDocuments, setExpandedDocuments] = useState<Set<string>>(new Set());
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -17,6 +18,16 @@ export const ResponseDisplay: React.FC<ResponseDisplayProps> = ({ response }) =>
       newExpanded.add(section);
     }
     setExpandedSections(newExpanded);
+  };
+
+  const toggleDocument = (documentKey: string) => {
+    const newExpanded = new Set(expandedDocuments);
+    if (newExpanded.has(documentKey)) {
+      newExpanded.delete(documentKey);
+    } else {
+      newExpanded.add(documentKey);
+    }
+    setExpandedDocuments(newExpanded);
   };
 
   if (!response.success) {
@@ -119,47 +130,146 @@ export const ResponseDisplay: React.FC<ResponseDisplayProps> = ({ response }) =>
         Document Analysis Results
       </h3>
       
-      <div className="space-y-4">
-        {response.data && typeof response.data === 'object' ? (
-          Object.entries(response.data).map(([key, value], index) => {
-            const sectionId = `section-${index}`;
-            const isExpanded = expandedSections.has(sectionId);
+      {/* Check if this is a multi-document response */}
+      {response.data?.multi_patient?.is_multi_patient ? (
+        <div className="space-y-6">
+          {/* Multi-patient summary */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-800 mb-2">Multi-Document Analysis</h4>
+            <p className="text-blue-700 text-sm mb-3">
+              Found {Object.keys(response.data.multi_patient.multi_patient_clusters).length} documents 
+              (Confidence: {(response.data.multi_patient.confidence * 100).toFixed(1)}%)
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {Object.entries(response.data.multi_patient.multi_patient_clusters).map(([doc, pages]) => (
+                <div key={doc} className="bg-white rounded px-2 py-1">
+                  <span className="font-medium text-blue-800">{doc}:</span> {pages}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Individual documents */}
+          {Object.entries(response.data.multi_patient.multi_patient_clusters).map(([documentKey, pagesRange]) => {
+            const documentData = response.data[documentKey];
+            if (!documentData?.result) return null;
+            
+            const isDocExpanded = expandedDocuments.has(documentKey);
+            const docNumber = documentKey.replace('Document-', '');
             
             return (
-              <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div key={documentKey} className="border border-gray-300 rounded-lg overflow-hidden">
                 <button
-                  onClick={() => toggleSection(sectionId)}
-                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                  onClick={() => toggleDocument(documentKey)}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 flex items-center justify-between transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    {getSectionIcon(key)}
-                    <span className="font-medium text-gray-800 capitalize">
-                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                      {docNumber}
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-800">
+                        {documentData.result.document_type?.overall?.class || 'Unknown Document'}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {pagesRange} • Patient: {documentData.result.patient_information?.name?.output?.processed?.first} {documentData.result.patient_information?.name?.output?.processed?.last}
+                      </div>
+                    </div>
                   </div>
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-gray-600" />
+                  {isDocExpanded ? (
+                    <ChevronDown className="w-5 h-5 text-gray-600" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-gray-600" />
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
                   )}
                 </button>
                 
-                {isExpanded && (
-                  <div className="p-4 border-t border-gray-200 bg-white">
-                    {renderValue(value)}
+                {isDocExpanded && (
+                  <div className="border-t border-gray-200">
+                    <div className="p-4 space-y-4">
+                      {Object.entries(documentData.result).map(([key, value], index) => {
+                        if (key === 'document_type') return null; // Skip as it's shown in header
+                        
+                        const sectionId = `${documentKey}-section-${index}`;
+                        const isExpanded = expandedSections.has(sectionId);
+                        
+                        return (
+                          <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <button
+                              onClick={() => toggleSection(sectionId)}
+                              className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                {getSectionIcon(key)}
+                                <span className="font-medium text-gray-800 capitalize">
+                                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                </span>
+                              </div>
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4 text-gray-600" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-gray-600" />
+                              )}
+                            </button>
+                            
+                            {isExpanded && (
+                              <div className="p-4 border-t border-gray-200 bg-white">
+                                {renderValue(value)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             );
-          })
-        ) : (
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <pre className="text-sm text-gray-800 whitespace-pre-wrap">
-              {JSON.stringify(response.data, null, 2)}
-            </pre>
-          </div>
-        )}
-      </div>
+          })}
+        </div>
+      ) : (
+        // Single document response (legacy format)
+        <div className="space-y-4">
+          {response.data && typeof response.data === 'object' ? (
+            Object.entries(response.data).map(([key, value], index) => {
+              const sectionId = `section-${index}`;
+              const isExpanded = expandedSections.has(sectionId);
+              
+              return (
+                <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(sectionId)}
+                    className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      {getSectionIcon(key)}
+                      <span className="font-medium text-gray-800 capitalize">
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </span>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-gray-600" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-gray-600" />
+                    )}
+                  </button>
+                  
+                  {isExpanded && (
+                    <div className="p-4 border-t border-gray-200 bg-white">
+                      {renderValue(value)}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                {JSON.stringify(response.data, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

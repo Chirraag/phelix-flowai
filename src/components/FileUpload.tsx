@@ -109,7 +109,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('multi_patient', 'full');
-      formData.append('max_pages', '50'); // Set reasonable default for max pages
+      formData.append('max_pages', '200'); // Set higher limit for max pages
 
       // Step 1: Upload document and get task_id
       const response = await fetch('https://api.phelix.ai/dev-portal/doc-ai/fax-ai', {
