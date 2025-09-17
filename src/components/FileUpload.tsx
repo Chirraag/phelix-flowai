@@ -131,7 +131,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
 
       // Step 2: Poll for results
       const pollForResults = async (): Promise<any> => {
-        const maxAttempts = 180; // 15 minutes with 5-second intervals
+        const maxAttempts = 540; // 45 minutes with 5-second intervals
         let attempts = 0;
 
         while (attempts < maxAttempts) {
@@ -150,7 +150,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
             updateUploadState({ progress });
 
             // Show more detailed status updates
-            if (attempts % 12 === 0) { // Every minute
+            if (attempts % 12 === 0 && attempts > 0) { // Every minute
               console.log(`Still processing... ${Math.round(progress)}% complete`);
             }
 
@@ -176,7 +176,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
           }
         }
         
-        throw new Error('Processing timeout after 15 minutes. Large documents may take longer to process. Please try again or contact support if the issue persists.');
+        throw new Error('Processing timeout after 45 minutes. Very large documents may take longer to process. Please try again or contact support if the issue persists.');
       };
 
       const finalResult = await pollForResults();
