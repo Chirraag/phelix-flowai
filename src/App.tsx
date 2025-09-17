@@ -7,11 +7,6 @@ import { UploadState } from './types';
 
 function App() {
   const [uploadState, setUploadState] = useState<UploadState | null>(null);
-  const [zapierWebhookUrl, setZapierWebhookUrl] = useState('https://hooks.zapier.com/hooks/catch/24583493/umd3a4g/');
-
-  const handleWebhookUrlChange = (url: string) => {
-    setZapierWebhookUrl(url);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -51,7 +46,7 @@ function App() {
         <div className="space-y-8">
           {/* Upload Section */}
           <section>
-            <ZapierConfig onWebhookUrlChange={handleWebhookUrlChange} />
+            <ZapierConfig onWebhookUrlChange={() => {}} />
             
             <div className="text-center mb-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-2">

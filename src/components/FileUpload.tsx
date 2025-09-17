@@ -310,17 +310,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
               {uploadState.zapierSent ? (
                 <div className="flex items-center justify-center gap-2 text-blue-700">
                   <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">Data sent to Zapier successfully</span>
+                  <span className="text-sm font-medium">Data sent to FlowAI successfully</span>
                 </div>
               ) : uploadState.zapierError ? (
                 <div className="flex items-center justify-center gap-2 text-red-700">
                   <AlertCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">Zapier error: {uploadState.zapierError}</span>
+                  <span className="text-sm font-medium">FlowAI API error: {uploadState.zapierError}</span>
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2 text-gray-600">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">Sending to Zapier...</span>
+                  <span className="text-sm">Sending to FlowAI...</span>
                 </div>
               )}
             </div>

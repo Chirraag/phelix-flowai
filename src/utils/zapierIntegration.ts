@@ -59,12 +59,8 @@ interface ZapierPayload {
   icd_code_confidence: number;
 }
 
-export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean; error?: string }> => {
-  const ZAPIER_WEBHOOK_URL = localStorage.getItem('zapier_webhook_url') || 'https://hooks.zapier.com/hooks/catch/24583493/umd3a4g/';
-  
-  if (!ZAPIER_WEBHOOK_URL) {
-    return { success: false, error: 'Zapier webhook URL not configured' };
-  }
+export const sendToZapier = async (apiResponse: any, originalFileName: string): Promise<{ success: boolean; error?: string }> => {
+  const FLOWAI_API_URL = 'https://api.myflowai.com/api/v1/sheet/trigger-zap';
   
   try {
     const result = apiResponse.result;
@@ -81,7 +77,7 @@ export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean
           const documentNumber = parseInt(documentKey.replace('Document-', ''));
           const payload = buildZapierPayload(documentData.result, documentNumber, pagesRange as string);
           
-          const response = await fetch(ZAPIER_WEBHOOK_URL, {
+          const response = await fetch(FLOWAI_API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -102,7 +98,7 @@ export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean
       // Single document response (legacy format)
       const payload = buildZapierPayload(result, 1, 'Page 1');
       
-      const response = await fetch(ZAPIER_WEBHOOK_URL, {
+      const response = await fetch(FLOWAI_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +107,7 @@ export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean
       });
       
       if (!response.ok) {
-        throw new Error(`Zapier webhook failed: ${response.status} ${response.statusText}`);
+        throw new Error(`FlowAI API failed: ${response.status} ${response.statusText}`);
       }
       
       return { success: true };
@@ -121,7 +117,7 @@ export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean
     console.error('Error sending to Zapier:', error);
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      error: error instanceof Error ? error.message : 'FlowAI API error occurred' 
     };
   }
 };
