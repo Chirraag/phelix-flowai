@@ -196,7 +196,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
 
   const sendDataToZapier = async (apiResponse: any) => {
     try {
-      const zapierResult = await sendToZapier(apiResponse);
+      const zapierResult = await sendToZapier(apiResponse, selectedFile?.name);
       
       if (zapierResult.success) {
         updateUploadState({ zapierSent: true, zapierError: null });

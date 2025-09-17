@@ -4,9 +4,12 @@ interface ZapierPayload {
   type_confidence: number;
   
   // Document Metadata
+  document_name: string; // Original uploaded file name
   document_name: string;
   document_number: number; // Which document in the multi-document response (1, 2, 3, etc.)
   pages_range: string; // e.g., "Page 1-21"
+  patient_number: number; // Patient number within the document (1, 2, 3, etc.)
+  timestamp: string; // ISO timestamp when processed
   
   // Patient Information
   first_name: string;
@@ -124,7 +127,14 @@ export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean
 };
 
 // Helper function to build Zapier payload for a single document
-const buildZapierPayload = (documentData: any, documentNumber: number, pagesRange: string): ZapierPayload => {
+const buildZapierPayload = (
+  documentData: any, 
+  documentNumber: number, 
+  pagesRange: string, 
+  originalFileName: string,
+  timestamp: string,
+  patientNumber: number
+): ZapierPayload => {
   // Get the first diagnosis if multiple exist
   const firstDiagnosis = documentData.reason_diagnosis_procedure?.diagnosis?.[0];
   
@@ -134,9 +144,11 @@ const buildZapierPayload = (documentData: any, documentNumber: number, pagesRang
     type_confidence: parseFloat(documentData.document_type?.overall?.confidence || '0'),
     
     // Document Metadata
-    document_name: documentData.document_name_tags?.other?.document_name || '',
+    document_name: originalFileName,
     document_number: documentNumber,
     pages_range: pagesRange,
+    patient_number: patientNumber,
+    timestamp: timestamp,
     
     // Patient Information
     first_name: documentData.patient_information?.name?.output?.processed?.first || '',
