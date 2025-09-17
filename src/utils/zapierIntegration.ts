@@ -62,82 +62,52 @@ export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean
   }
   
   try {
-    // Extract data from the API response
+    // Handle multi-patient response structure
     const result = apiResponse.result;
     
-    // Build the payload with confidence scores
-    const payload: ZapierPayload = {
-      // Document Classification
-      type: result.document_type?.overall?.class || '',
-      type_confidence: parseFloat(result.document_type?.overall?.confidence || '0'),
+    // Check if this is a multi-patient response
+    if (result.patients && Array.isArray(result.patients)) {
+      // Send each patient as a separate webhook call
+      const results = [];
       
-      // Document Metadata
-      document_name: result.document_name_tags?.other?.document_name || '',
+      for (let i = 0; i < result.patients.length; i++) {
+        const patient = result.patients[i];
+        const payload = buildZapierPayload(patient, result.document_type, result.document_name_tags, i + 1);
+        
+        const response = await fetch(ZAPIER_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Zapier webhook failed for patient ${i + 1}: ${response.status} ${response.statusText}`);
+        }
+        
+        results.push({ patient: i + 1, success: true });
+      }
       
-      // Patient Information
-      first_name: result.patient_information?.name?.output?.processed?.first || '',
-      first_name_confidence: result.patient_information?.name?.confidence || 0,
-      last_name: result.patient_information?.name?.output?.processed?.last || '',
-      last_name_confidence: result.patient_information?.name?.confidence || 0,
-      phone_number: result.patient_information?.phone?.output?.processed?.cell || 
-                   result.patient_information?.phone?.output?.processed?.home || 
-                   result.patient_information?.phone?.output?.processed?.work || '',
-      phone_number_confidence: result.patient_information?.phone?.confidence || 0,
+      return { success: true };
+    } else {
+      // Single patient response (legacy format)
+      const payload = buildZapierPayload(result, result.document_type, result.document_name_tags, 1);
       
-      // Address Information
-      address: result.patient_information?.address?.output?.processed?.address || '',
-      address_confidence: result.patient_information?.address?.confidence || 0,
-      city: result.patient_information?.address?.output?.processed?.city || '',
-      city_confidence: result.patient_information?.address?.confidence || 0,
-      state: result.patient_information?.address?.output?.processed?.['state/province'] || '',
-      state_confidence: result.patient_information?.address?.confidence || 0,
-      zip_code: result.patient_information?.address?.output?.processed?.['zip/postal'] || '',
-      zip_code_confidence: result.patient_information?.address?.confidence || 0,
-      country: result.patient_information?.address?.output?.processed?.country || '',
+      const response = await fetch(ZAPIER_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
       
-      // Additional Patient Data
-      date_of_birth: `${result.patient_information?.DOB?.output?.processed?.month || ''}/${result.patient_information?.DOB?.output?.processed?.day || ''}/${result.patient_information?.DOB?.output?.processed?.year || ''}`,
-      date_of_birth_confidence: result.patient_information?.DOB?.confidence || 0,
-      gender: result.patient_information?.gender?.output?.processed || '',
-      gender_confidence: result.patient_information?.gender?.confidence || 0,
-      health_card_number: result.patient_information?.health_card_number?.output?.processed?.NO || '',
-      health_card_number_confidence: result.patient_information?.health_card_number?.confidence || 0,
-      email: result.patient_information?.email?.output?.processed || '',
-      email_confidence: result.patient_information?.email?.confidence || 0,
+      if (!response.ok) {
+        throw new Error(`Zapier webhook failed: ${response.status} ${response.statusText}`);
+      }
       
-      // Insurance Information
-      insurance_name: result.insurance_information?.primary?.insurance_name?.output?.processed || '',
-      insurance_name_confidence: result.insurance_information?.primary?.insurance_name?.confidence || 0,
-      subscriber_id: result.insurance_information?.primary?.subscriber_id?.output?.processed || '',
-      subscriber_id_confidence: result.insurance_information?.primary?.subscriber_id?.confidence || 0,
-      
-      // Provider Information
-      physician_name: `${result.from?.physician_name?.output?.processed?.first || ''} ${result.from?.physician_name?.output?.processed?.last || ''}`.trim(),
-      physician_name_confidence: result.from?.physician_name?.confidence || 0,
-      facility: result.from?.facility?.output?.processed || '',
-      facility_confidence: result.from?.facility?.confidence || 0,
-      
-      // Diagnosis Information
-      diagnosis: result.reason_diagnosis_procedure?.diagnosis?.[0]?.output?.processed?.diagnosis || '',
-      diagnosis_confidence: result.reason_diagnosis_procedure?.diagnosis?.[0]?.confidence || 0,
-      icd_code: result.reason_diagnosis_procedure?.diagnosis?.[0]?.output?.processed?.icd || '',
-      icd_code_confidence: result.reason_diagnosis_procedure?.diagnosis?.[0]?.confidence || 0,
-    };
-    
-    // Send to Zapier
-    const response = await fetch(ZAPIER_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Zapier webhook failed: ${response.status} ${response.statusText}`);
+      return { success: true };
     }
-    
-    return { success: true };
     
   } catch (error) {
     console.error('Error sending to Zapier:', error);
@@ -146,4 +116,3 @@ export const sendToZapier = async (apiResponse: any): Promise<{ success: boolean
       error: error instanceof Error ? error.message : 'Unknown error occurred' 
     };
   }
-};
