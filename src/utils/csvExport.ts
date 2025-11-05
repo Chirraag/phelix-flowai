@@ -271,10 +271,12 @@ export const getRecordCount = (): number => {
     const existingData = localStorage.getItem(CSV_STORAGE_KEY);
 
     if (!existingData) {
+      console.log('No records found in localStorage');
       return 0;
     }
 
     const records: CSVRecord[] = JSON.parse(existingData);
+    console.log(`Record count: ${records.length}`);
     return records.length;
   } catch (error) {
     console.error('Error getting record count:', error);
