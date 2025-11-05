@@ -84,17 +84,13 @@ const CSV_HEADERS = [
   'icd_code_confidence'
 ];
 
-export const extractRecordFromAPI = (apiResponse: any, originalFileName?: string): CSVRecord => {
-  const result = apiResponse.result;
-  const fileName = originalFileName || '';
-  const timestamp = new Date().toISOString();
-
+const extractSinglePatientRecord = (result: any, fileName: string, timestamp: string, patientNumber: number): CSVRecord => {
   const firstDiagnosis = result.reason_diagnosis_procedure?.diagnosis?.[0];
 
   return {
     timestamp,
     document_name_upload: fileName,
-    patient_number: 1,
+    patient_number: patientNumber,
     type: result.document_type?.overall?.class || '',
     type_confidence: parseFloat(result.document_type?.overall?.confidence || '0'),
     first_name: result.patient_information?.name?.output?.processed?.first || '',
@@ -132,9 +128,40 @@ export const extractRecordFromAPI = (apiResponse: any, originalFileName?: string
     facility_confidence: result.from?.facility?.confidence || 0,
     diagnosis: firstDiagnosis?.output?.processed?.diagnosis || '',
     diagnosis_confidence: firstDiagnosis?.confidence || 0,
-    icd_code: firstDiagnosis?.output?.processed?.icd || '',
+    icd_code: firstDiagnosis?.output?.processed?.icd || firstDiagnosis?.output?.processed?.icd10 || firstDiagnosis?.output?.processed?.icd9 || '',
     icd_code_confidence: firstDiagnosis?.confidence || 0,
   };
+};
+
+export const extractRecordFromAPI = (apiResponse: any, originalFileName?: string): CSVRecord[] => {
+  const fileName = originalFileName || '';
+  const timestamp = new Date().toISOString();
+  const records: CSVRecord[] = [];
+
+  console.log('Extracting records from API response:', {
+    hasMultiPatient: !!apiResponse.multi_patient,
+    isMultiPatient: apiResponse.multi_patient?.is_multi_patient,
+    hasResult: !!apiResponse.result,
+    keys: Object.keys(apiResponse)
+  });
+
+  if (apiResponse.multi_patient?.is_multi_patient) {
+    let patientNumber = 1;
+
+    for (const key in apiResponse) {
+      if (key.startsWith('Document-') && apiResponse[key]?.result) {
+        console.log(`Extracting patient ${patientNumber} from ${key}`);
+        records.push(extractSinglePatientRecord(apiResponse[key].result, fileName, timestamp, patientNumber));
+        patientNumber++;
+      }
+    }
+    console.log(`Total patients extracted: ${records.length}`);
+  } else if (apiResponse.result) {
+    console.log('Extracting single patient document');
+    records.push(extractSinglePatientRecord(apiResponse.result, fileName, timestamp, 1));
+  }
+
+  return records;
 };
 
 const escapeCSVValue = (value: any): string => {
@@ -151,7 +178,7 @@ const escapeCSVValue = (value: any): string => {
   return stringValue;
 };
 
-export const saveToCSV = async (record: CSVRecord): Promise<void> => {
+export const saveToCSV = async (newRecords: CSVRecord[]): Promise<void> => {
   const CSV_STORAGE_KEY = 'document_processing_records';
 
   try {
@@ -162,7 +189,7 @@ export const saveToCSV = async (record: CSVRecord): Promise<void> => {
       records = JSON.parse(existingData);
     }
 
-    records.push(record);
+    records.push(...newRecords);
 
     localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(records));
   } catch (error) {

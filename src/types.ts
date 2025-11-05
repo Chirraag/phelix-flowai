@@ -13,6 +13,7 @@ export interface UploadState {
   response: ApiResponse | null;
   zapierSent: boolean;
   zapierError: string | null;
+  patientCount?: number;
 }
 
 export interface ZapierPayload {

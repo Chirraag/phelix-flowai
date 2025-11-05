@@ -205,15 +205,16 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
 
   const sendDataToZapier = async (apiResponse: any) => {
     try {
-      const csvRecord = extractRecordFromAPI(apiResponse, selectedFile?.name);
-      await saveToCSV(csvRecord);
+      const csvRecords = extractRecordFromAPI(apiResponse, selectedFile?.name);
+      const patientCount = csvRecords.length;
+      await saveToCSV(csvRecords);
 
       const zapierResult = await sendToZapier(apiResponse, selectedFile?.name);
 
       if (zapierResult.success) {
-        updateUploadState({ zapierSent: true, zapierError: null });
+        updateUploadState({ zapierSent: true, zapierError: null, patientCount });
       } else {
-        updateUploadState({ zapierSent: false, zapierError: zapierResult.error || 'Failed to send to Zapier' });
+        updateUploadState({ zapierSent: false, zapierError: zapierResult.error || 'Failed to send to Zapier', patientCount });
       }
     } catch (error) {
       updateUploadState({
@@ -315,15 +316,25 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
             <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-green-800 mb-2">Document Processed Successfully!</h3>
             <p className="text-green-600">{selectedFile?.name}</p>
+            {uploadState.patientCount && uploadState.patientCount > 1 && (
+              <p className="text-sm text-blue-600 font-medium mt-1">
+                Multi-patient document: {uploadState.patientCount} patients detected
+              </p>
+            )}
             <p className="text-sm text-gray-600 mt-2">View the extracted data below</p>
-            
+
             {/* Zapier Status */}
             <div className="mt-4 p-3 rounded-lg bg-blue-50">
               {uploadState.zapierSent ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-center gap-2 text-green-700">
                     <CheckCircle className="w-4 h-4" />
-                    <span className="text-sm font-medium">Data saved to CSV successfully</span>
+                    <span className="text-sm font-medium">
+                      {uploadState.patientCount && uploadState.patientCount > 1
+                        ? `${uploadState.patientCount} patient records saved to CSV successfully`
+                        : 'Data saved to CSV successfully'
+                      }
+                    </span>
                   </div>
                   <div className="flex items-center justify-center gap-2 text-blue-700">
                     <CheckCircle className="w-4 h-4" />
@@ -334,7 +345,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
                 <div className="space-y-2">
                   <div className="flex items-center justify-center gap-2 text-green-700">
                     <CheckCircle className="w-4 h-4" />
-                    <span className="text-sm font-medium">Data saved to CSV successfully</span>
+                    <span className="text-sm font-medium">
+                      {uploadState.patientCount && uploadState.patientCount > 1
+                        ? `${uploadState.patientCount} patient records saved to CSV successfully`
+                        : 'Data saved to CSV successfully'
+                      }
+                    </span>
                   </div>
                   <div className="flex items-center justify-center gap-2 text-orange-700">
                     <AlertCircle className="w-4 h-4" />
