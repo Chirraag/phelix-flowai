@@ -139,24 +139,31 @@ export const extractRecordFromAPI = (apiResponse: any, originalFileName?: string
   const records: CSVRecord[] = [];
 
   console.log('Extracting records from API response:', {
-    hasMultiPatient: !!apiResponse.multi_patient,
-    isMultiPatient: apiResponse.multi_patient?.is_multi_patient,
-    hasResult: !!apiResponse.result,
-    keys: Object.keys(apiResponse)
+    hasMultiPatient: !!apiResponse?.result?.multi_patient,
+    isMultiPatient: apiResponse?.result?.multi_patient?.is_multi_patient,
+    hasResult: !!apiResponse?.result,
+    hasDocument1: !!apiResponse?.result?.['Document-1'],
+    hasDocument2: !!apiResponse?.result?.['Document-2'],
+    topLevelKeys: apiResponse ? Object.keys(apiResponse) : [],
+    resultKeys: apiResponse?.result ? Object.keys(apiResponse.result) : []
   });
 
-  if (apiResponse.multi_patient?.is_multi_patient) {
+  // Check if this is a multi-patient document
+  if (apiResponse?.result?.multi_patient?.is_multi_patient) {
+    console.log('Multi-patient document detected');
     let patientNumber = 1;
 
-    for (const key in apiResponse) {
-      if (key.startsWith('Document-') && apiResponse[key]?.result) {
+    // Loop through Document-1, Document-2, etc. in the result object
+    for (const key in apiResponse.result) {
+      if (key.startsWith('Document-') && apiResponse.result[key]?.result) {
         console.log(`Extracting patient ${patientNumber} from ${key}`);
-        records.push(extractSinglePatientRecord(apiResponse[key].result, fileName, timestamp, patientNumber));
+        records.push(extractSinglePatientRecord(apiResponse.result[key].result, fileName, timestamp, patientNumber));
         patientNumber++;
       }
     }
-    console.log(`Total patients extracted: ${records.length}`);
-  } else if (apiResponse.result) {
+    console.log(`Total multi-patient records extracted: ${records.length}`);
+  } else if (apiResponse?.result && !apiResponse.result.multi_patient) {
+    // Single patient document (old format)
     console.log('Extracting single patient document');
     records.push(extractSinglePatientRecord(apiResponse.result, fileName, timestamp, 1));
   }
