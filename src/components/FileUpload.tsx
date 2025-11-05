@@ -205,9 +205,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
 
   const sendDataToZapier = async (apiResponse: any) => {
     try {
+      console.log('sendDataToZapier received:', apiResponse);
+      console.log('API Response structure check:', {
+        hasMultiPatient: !!apiResponse?.multi_patient,
+        hasResult: !!apiResponse?.result,
+        hasDocument1: !!apiResponse?.['Document-1'],
+        hasDocument2: !!apiResponse?.['Document-2'],
+        topLevelKeys: apiResponse ? Object.keys(apiResponse) : []
+      });
+
       const csvRecords = extractRecordFromAPI(apiResponse, selectedFile?.name);
       const patientCount = csvRecords.length;
+
+      console.log(`Extracted ${patientCount} records:`, csvRecords);
+
       await saveToCSV(csvRecords);
+      console.log('Records saved to CSV successfully');
 
       const zapierResult = await sendToZapier(apiResponse, selectedFile?.name);
 
@@ -217,6 +230,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
         updateUploadState({ zapierSent: false, zapierError: zapierResult.error || 'Failed to send to Zapier', patientCount });
       }
     } catch (error) {
+      console.error('Error in sendDataToZapier:', error);
       updateUploadState({
         zapierSent: false,
         zapierError: error instanceof Error ? error.message : 'Failed to send to Zapier'

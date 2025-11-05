@@ -182,16 +182,28 @@ export const saveToCSV = async (newRecords: CSVRecord[]): Promise<void> => {
   const CSV_STORAGE_KEY = 'document_processing_records';
 
   try {
+    console.log(`Saving ${newRecords.length} new records to CSV`);
+
     const existingData = localStorage.getItem(CSV_STORAGE_KEY);
     let records: CSVRecord[] = [];
 
     if (existingData) {
       records = JSON.parse(existingData);
+      console.log(`Found ${records.length} existing records`);
     }
 
     records.push(...newRecords);
+    console.log(`Total records after adding new ones: ${records.length}`);
 
     localStorage.setItem(CSV_STORAGE_KEY, JSON.stringify(records));
+    console.log('Successfully saved to localStorage');
+
+    // Verify the save
+    const verifyData = localStorage.getItem(CSV_STORAGE_KEY);
+    if (verifyData) {
+      const verifyRecords = JSON.parse(verifyData);
+      console.log(`Verification: localStorage now contains ${verifyRecords.length} records`);
+    }
   } catch (error) {
     console.error('Error saving to local storage:', error);
     throw error;
