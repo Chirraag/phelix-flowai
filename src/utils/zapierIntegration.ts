@@ -58,47 +58,25 @@ interface ZapierPayload {
   icd_code_confidence: number;
 }
 
-export const sendToZapier = async (apiResponse: any, originalFileName: string): Promise<{ success: boolean; error?: string }> => {
+export const sendToZapier = async (apiResponse: any, originalFileName?: string): Promise<{ success: boolean; error?: string }> => {
   const FLOWAI_API_URL = 'https://api.myflowai.com/api/v1/sheet/trigger-zap';
-  
+
   try {
     const result = apiResponse.result;
-    
+    const fileName = originalFileName || '';
+    const timestamp = new Date().toISOString();
+
     // Check if this is a multi-document response
     if (result.multi_patient && result.multi_patient.is_multi_patient) {
-      const results = [];
+      // With the new structure, multi-patient info exists but document data is in result directly
       const multiPatientClusters = result.multi_patient.multi_patient_clusters;
-      
-      // Process each document
-      for (const [documentKey, pagesRange] of Object.entries(multiPatientClusters)) {
-        const documentData = result[documentKey];
-        if (documentData && documentData.result) {
-          const documentNumber = parseInt(documentKey.replace('Document-', ''));
-          const timestamp = new Date().toISOString();
-          const payload = buildZapierPayload(documentData.result, documentNumber, pagesRange as string, originalFileName, timestamp, 1);
-          
-          const response = await fetch(FLOWAI_API_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-          });
-          
-          if (!response.ok) {
-            throw new Error(`FlowAI API failed for ${documentKey}: ${response.status} ${response.statusText}`);
-          }
-          
-          results.push({ document: documentKey, success: true });
-        }
-      }
-      
-      return { success: true };
-    } else {
-      // Single document response (legacy format)
-      const timestamp = new Date().toISOString();
-      const payload = buildZapierPayload(result, 1, 'Page 1', originalFileName, timestamp, 1);
-      
+      const numDocuments = Object.keys(multiPatientClusters).length;
+
+      // For now, send the main result as a single payload
+      // The new API structure doesn't separate document data like before
+      const pagesRange = `Pages ${Object.values(multiPatientClusters).join(', ')}`;
+      const payload = buildZapierPayload(result, 1, pagesRange, fileName, timestamp, 1);
+
       const response = await fetch(FLOWAI_API_URL, {
         method: 'POST',
         headers: {
@@ -106,19 +84,36 @@ export const sendToZapier = async (apiResponse: any, originalFileName: string): 
         },
         body: JSON.stringify(payload),
       });
-      
+
       if (!response.ok) {
         throw new Error(`FlowAI API failed: ${response.status} ${response.statusText}`);
       }
-      
+
+      return { success: true };
+    } else {
+      // Single document response
+      const payload = buildZapierPayload(result, 1, 'Page 1', fileName, timestamp, 1);
+
+      const response = await fetch(FLOWAI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`FlowAI API failed: ${response.status} ${response.statusText}`);
+      }
+
       return { success: true };
     }
-    
+
   } catch (error) {
     console.error('Error sending to FlowAI:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'FlowAI API error occurred' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'FlowAI API error occurred'
     };
   }
 };

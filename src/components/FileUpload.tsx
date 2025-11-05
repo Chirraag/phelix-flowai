@@ -186,9 +186,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
         updateUploadState({
           uploading: false,
           success: true,
-          response: { success: true, data: finalResult.result }
+          response: { success: true, data: finalResult }
         });
-        
+
         // Send to Zapier after successful processing
         sendDataToZapier(finalResult);
       }, 500);
