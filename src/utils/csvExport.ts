@@ -138,33 +138,40 @@ export const extractRecordFromAPI = (apiResponse: any, originalFileName?: string
   const timestamp = new Date().toISOString();
   const records: CSVRecord[] = [];
 
+  // The API response can have two structures:
+  // 1. Wrapped: { task_id, status, result: { multi_patient, Document-1, Document-2 } }
+  // 2. Unwrapped: { multi_patient, Document-1, Document-2 }
+
+  // Use the result if it exists, otherwise use the top level
+  const data = apiResponse?.result || apiResponse;
+
   console.log('Extracting records from API response:', {
-    hasMultiPatientTopLevel: !!apiResponse?.multi_patient,
-    isMultiPatientTopLevel: apiResponse?.multi_patient?.is_multi_patient,
-    hasResultKey: !!apiResponse?.result,
-    hasDocument1TopLevel: !!apiResponse?.['Document-1'],
-    hasDocument2TopLevel: !!apiResponse?.['Document-2'],
-    topLevelKeys: apiResponse ? Object.keys(apiResponse) : []
+    hasResult: !!apiResponse?.result,
+    hasMultiPatient: !!data?.multi_patient,
+    isMultiPatient: data?.multi_patient?.is_multi_patient,
+    hasDocument1: !!data?.['Document-1'],
+    hasDocument2: !!data?.['Document-2'],
+    dataKeys: data ? Object.keys(data) : []
   });
 
-  // Check if this is a multi-patient document at the top level
-  if (apiResponse?.multi_patient?.is_multi_patient) {
-    console.log('Multi-patient document detected (top level)');
+  // Check if this is a multi-patient document
+  if (data?.multi_patient?.is_multi_patient) {
+    console.log('Multi-patient document detected');
     let patientNumber = 1;
 
-    // Loop through Document-1, Document-2, etc. at the top level
-    for (const key in apiResponse) {
-      if (key.startsWith('Document-') && apiResponse[key]?.result) {
+    // Loop through Document-1, Document-2, etc.
+    for (const key in data) {
+      if (key.startsWith('Document-') && data[key]?.result) {
         console.log(`Extracting patient ${patientNumber} from ${key}`);
-        records.push(extractSinglePatientRecord(apiResponse[key].result, fileName, timestamp, patientNumber));
+        records.push(extractSinglePatientRecord(data[key].result, fileName, timestamp, patientNumber));
         patientNumber++;
       }
     }
     console.log(`Total multi-patient records extracted: ${records.length}`);
-  } else if (apiResponse?.result) {
-    // Single patient document with result wrapper
+  } else if (data?.patient_information || data?.document_type) {
+    // Single patient document (data is already the result object)
     console.log('Extracting single patient document');
-    records.push(extractSinglePatientRecord(apiResponse.result, fileName, timestamp, 1));
+    records.push(extractSinglePatientRecord(data, fileName, timestamp, 1));
   }
 
   return records;
