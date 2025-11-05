@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Upload, File, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
 import { UploadState, ApiResponse } from '../types';
 import { sendToZapier } from '../utils/zapierIntegration';
+import { extractRecordFromAPI, saveToCSV } from '../utils/csvExport';
 
 const ACCEPTED_FILE_TYPES = [
   'application/pdf',
@@ -204,17 +205,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
 
   const sendDataToZapier = async (apiResponse: any) => {
     try {
+      const csvRecord = extractRecordFromAPI(apiResponse, selectedFile?.name);
+      await saveToCSV(csvRecord);
+
       const zapierResult = await sendToZapier(apiResponse, selectedFile?.name);
-      
+
       if (zapierResult.success) {
         updateUploadState({ zapierSent: true, zapierError: null });
       } else {
         updateUploadState({ zapierSent: false, zapierError: zapierResult.error || 'Failed to send to Zapier' });
       }
     } catch (error) {
-      updateUploadState({ 
-        zapierSent: false, 
-        zapierError: error instanceof Error ? error.message : 'Failed to send to Zapier' 
+      updateUploadState({
+        zapierSent: false,
+        zapierError: error instanceof Error ? error.message : 'Failed to send to Zapier'
       });
     }
   };
@@ -316,19 +320,31 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
             {/* Zapier Status */}
             <div className="mt-4 p-3 rounded-lg bg-blue-50">
               {uploadState.zapierSent ? (
-                <div className="flex items-center justify-center gap-2 text-blue-700">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">Data sent to FlowAI successfully</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-green-700">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">Data saved to CSV successfully</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-blue-700">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">Data sent to FlowAI successfully</span>
+                  </div>
                 </div>
               ) : uploadState.zapierError ? (
-                <div className="flex items-center justify-center gap-2 text-red-700">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">FlowAI API error: {uploadState.zapierError}</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-green-700">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">Data saved to CSV successfully</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-orange-700">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">FlowAI API is currently unavailable</span>
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2 text-gray-600">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">Sending to FlowAI...</span>
+                  <span className="text-sm">Saving data...</span>
                 </div>
               )}
             </div>

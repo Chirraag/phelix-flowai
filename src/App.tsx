@@ -3,6 +3,7 @@ import { FileText, Zap, User, Clipboard } from 'lucide-react';
 import { FileUpload } from './components/FileUpload';
 import { ResponseDisplay } from './components/ResponseDisplay';
 import { ZapierConfig } from './components/ZapierConfig';
+import { CSVDownload } from './components/CSVDownload';
 import { UploadState } from './types';
 
 function App() {
@@ -44,10 +45,13 @@ function App() {
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="space-y-8">
+          {/* CSV Download Section */}
+          <CSVDownload />
+
           {/* Upload Section */}
           <section>
             <ZapierConfig onWebhookUrlChange={() => {}} />
-            
+
             <div className="text-center mb-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-2">
                 Upload Document for Analysis
@@ -56,7 +60,7 @@ function App() {
                 Support for medical documents, forms, images, and text files
               </p>
             </div>
-            
+
             <FileUpload onUploadStateChange={setUploadState} />
           </section>
 
