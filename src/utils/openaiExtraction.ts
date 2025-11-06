@@ -1,7 +1,3 @@
-import * as pdfjsLib from 'pdfjs-dist';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 export interface PatientRecord {
@@ -54,21 +50,30 @@ export async function extractDataWithOpenAI(
 }
 
 async function extractFromPDF(file: File): Promise<OpenAIExtractionResult> {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  // Upload file to OpenAI
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('purpose', 'user_data');
 
-  let fullText = '';
-  const totalPages = pdf.numPages;
+  const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: formData,
+  });
 
-  for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(' ');
-    fullText += `\n\n--- Page ${pageNum} ---\n${pageText}`;
+  if (!uploadResponse.ok) {
+    const errorData = await uploadResponse.json().catch(() => ({}));
+    throw new Error(
+      errorData.error?.message || `OpenAI file upload error: ${uploadResponse.status} ${uploadResponse.statusText}`
+    );
   }
 
+  const uploadData = await uploadResponse.json();
+  const fileId = uploadData.id;
+
+  // Use the file in chat completion
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -84,7 +89,16 @@ async function extractFromPDF(file: File): Promise<OpenAIExtractionResult> {
         },
         {
           role: 'user',
-          content: `Extract all patient information from this medical document. The document has ${totalPages} pages. If there are multiple patients, extract information for each one separately. Make sure to return ONLY a valid JSON object with the exact structure specified in the system prompt.\n\nDocument content:\n${fullText}`
+          content: [
+            {
+              type: 'input_file',
+              input_file: { file_id: fileId }
+            },
+            {
+              type: 'input_text',
+              input_text: { text: 'Extract all patient information from this medical document. If there are multiple patients, extract information for each one separately. Make sure to return ONLY a valid JSON object with the exact structure specified in the system prompt.' }
+            }
+          ]
         }
       ],
       max_tokens: 4096,
