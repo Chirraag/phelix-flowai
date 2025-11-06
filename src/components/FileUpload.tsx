@@ -3,6 +3,7 @@ import { Upload, File, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react
 import { UploadState, ApiResponse } from '../types';
 import { sendToZapier } from '../utils/zapierIntegration';
 import { extractRecordFromAPI, saveToCSV } from '../utils/csvExport';
+import { extractDataWithOpenAI } from '../utils/openaiExtraction';
 
 const ACCEPTED_FILE_TYPES = [
   'application/pdf',
