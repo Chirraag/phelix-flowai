@@ -34,22 +34,45 @@ export async function extractDataWithOpenAI(
   file: File
 ): Promise<OpenAIExtractionResult> {
   try {
-    const base64File = await fileToBase64(file);
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
-    let imageUrl: string;
-    let mimeType: string;
-
     if (fileExtension === 'pdf') {
-      mimeType = 'application/pdf';
-      imageUrl = `data:application/pdf;base64,${base64File}`;
+      return await extractFromPDF(file);
     } else if (['jpg', 'jpeg', 'png', 'tiff', 'tif'].includes(fileExtension || '')) {
-      mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-      imageUrl = `data:${mimeType};base64,${base64File}`;
+      return await extractFromImage(file);
     } else {
       throw new Error('Unsupported file type. Please upload PDF or image files.');
     }
+  } catch (error) {
+    console.error('OpenAI extraction error:', error);
+    throw error;
+  }
+}
 
+async function extractFromPDF(file: File): Promise<OpenAIExtractionResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('purpose', 'assistants');
+
+  const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: formData,
+  });
+
+  if (!uploadResponse.ok) {
+    const errorData = await uploadResponse.json().catch(() => ({}));
+    throw new Error(
+      errorData.error?.message || `File upload failed: ${uploadResponse.status}`
+    );
+  }
+
+  const fileData = await uploadResponse.json();
+  const fileId = fileData.id;
+
+  try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -61,7 +84,91 @@ export async function extractDataWithOpenAI(
         messages: [
           {
             role: 'system',
-            content: `You are a medical document extraction AI. Extract patient information from documents with high accuracy.
+            content: getSystemPrompt()
+          },
+          {
+            role: 'user',
+            content: `Extract all patient information from the uploaded PDF file (file_id: ${fileId}). If there are multiple patients, extract information for each one separately.`
+          }
+        ],
+        max_tokens: 4096,
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    return parseOpenAIResponse(data);
+  } finally {
+    await fetch(`https://api.openai.com/v1/files/${fileId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+    }).catch(() => {});
+  }
+}
+
+async function extractFromImage(file: File): Promise<OpenAIExtractionResult> {
+  const base64File = await fileToBase64(file);
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+  const imageUrl = `data:${mimeType};base64,${base64File}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: getSystemPrompt()
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Extract all patient information from this medical document. If there are multiple patients, extract information for each one separately.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageUrl,
+                detail: 'high'
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 4096,
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  return parseOpenAIResponse(data);
+}
+
+function getSystemPrompt(): string {
+  return `You are a medical document extraction AI. Extract patient information from documents with high accuracy.
 
 IMPORTANT: Documents may contain information for MULTIPLE PATIENTS. You MUST:
 1. Identify ALL patients in the document
@@ -106,65 +213,33 @@ Return ONLY valid JSON in this exact format:
   ]
 }
 
-If a field is not found, omit it or use null. Extract ALL patients found in the document.`
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extract all patient information from this medical document. If there are multiple patients, extract information for each one separately.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageUrl,
-                  detail: 'high'
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 4096,
-        temperature: 0.1,
-      }),
-    });
+If a field is not found, omit it or use null. Extract ALL patients found in the document.`;
+}
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`
-      );
-    }
+function parseOpenAIResponse(data: any): OpenAIExtractionResult {
+  const content = data.choices[0]?.message?.content;
 
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('No response from OpenAI');
-    }
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Could not extract JSON from OpenAI response');
-    }
-
-    const extractedData: OpenAIExtractionResult = JSON.parse(jsonMatch[0]);
-
-    if (!extractedData.patients || !Array.isArray(extractedData.patients)) {
-      extractedData.patients = [extractedData as any];
-    }
-
-    extractedData.patients = extractedData.patients.map((patient, index) => ({
-      ...patient,
-      patient_number: patient.patient_number || index + 1,
-    }));
-
-    return extractedData;
-  } catch (error) {
-    console.error('OpenAI extraction error:', error);
-    throw error;
+  if (!content) {
+    throw new Error('No response from OpenAI');
   }
+
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('Could not extract JSON from OpenAI response');
+  }
+
+  const extractedData: OpenAIExtractionResult = JSON.parse(jsonMatch[0]);
+
+  if (!extractedData.patients || !Array.isArray(extractedData.patients)) {
+    extractedData.patients = [extractedData as any];
+  }
+
+  extractedData.patients = extractedData.patients.map((patient, index) => ({
+    ...patient,
+    patient_number: patient.patient_number || index + 1,
+  }));
+
+  return extractedData;
 }
 
 function fileToBase64(file: File): Promise<string> {
