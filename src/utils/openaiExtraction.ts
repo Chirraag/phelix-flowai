@@ -1,3 +1,7 @@
+import * as pdfjsLib from 'pdfjs-dist';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 export interface PatientRecord {
@@ -50,69 +54,54 @@ export async function extractDataWithOpenAI(
 }
 
 async function extractFromPDF(file: File): Promise<OpenAIExtractionResult> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('purpose', 'assistants');
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-  const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+  let fullText = '';
+  const totalPages = pdf.numPages;
+
+  for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(' ');
+    fullText += `\n\n--- Page ${pageNum} ---\n${pageText}`;
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${OPENAI_API_KEY}`,
     },
-    body: formData,
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: getSystemPrompt()
+        },
+        {
+          role: 'user',
+          content: `Extract all patient information from this medical document. The document has ${totalPages} pages. If there are multiple patients, extract information for each one separately. Make sure to return ONLY a valid JSON object with the exact structure specified in the system prompt.\n\nDocument content:\n${fullText}`
+        }
+      ],
+      max_tokens: 4096,
+      temperature: 0.1,
+      response_format: { type: "json_object" }
+    }),
   });
 
-  if (!uploadResponse.ok) {
-    const errorData = await uploadResponse.json().catch(() => ({}));
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
     throw new Error(
-      errorData.error?.message || `File upload failed: ${uploadResponse.status}`
+      errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`
     );
   }
 
-  const fileData = await uploadResponse.json();
-  const fileId = fileData.id;
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: getSystemPrompt()
-          },
-          {
-            role: 'user',
-            content: `Extract all patient information from the uploaded PDF file (file_id: ${fileId}). If there are multiple patients, extract information for each one separately.`
-          }
-        ],
-        max_tokens: 4096,
-        temperature: 0.1,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const data = await response.json();
-    return parseOpenAIResponse(data);
-  } finally {
-    await fetch(`https://api.openai.com/v1/files/${fileId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      },
-    }).catch(() => {});
-  }
+  const data = await response.json();
+  return parseOpenAIResponse(data);
 }
 
 async function extractFromImage(file: File): Promise<OpenAIExtractionResult> {
