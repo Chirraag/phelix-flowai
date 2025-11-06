@@ -96,10 +96,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
   const uploadDocument = async () => {
     if (!selectedFile) return;
 
-    updateUploadState({ 
-      uploading: true, 
-      progress: 0, 
-      error: null, 
+    updateUploadState({
+      uploading: true,
+      progress: 0,
+      error: null,
       success: false,
       response: null,
       zapierSent: false,
@@ -107,91 +107,21 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadStateChange }) =
     });
 
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('multi_patient', 'full');
-      formData.append('max_pages', '200'); // Set higher limit for max pages
+      updateUploadState({ progress: 10 });
 
-      // Step 1: Upload document and get task_id
-      const response = await fetch('https://api.phelix.ai/dev-portal/doc-ai/fax-ai', {
-        method: 'POST',
-        headers: {
-          'x-access-tokens': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJwdWJsaWNfaWQiOiI5YjdhMzlhOC0yOTdmLTRmMzktODFhMy1kNjI1OTI0ZWE0ODMiLCJleHAiOjE3ODkyMjA4OTF9.Z8MAaI-CrQ15qz5QSBit8m9cwx_4HbsnZknr9C6Cvyc'
-        },
-        body: formData
-      });
+      const extractedData = await extractDataWithOpenAI(selectedFile);
 
-      const data = await response.json();
-      
-      if (!response.ok || !data.is_success) {
-        throw new Error(data.message || 'Upload failed');
-      }
-
-      const taskId = data.task_id;
-      updateUploadState({ progress: 25 });
-
-      // Step 2: Poll for results
-      const pollForResults = async (): Promise<any> => {
-        const maxAttempts = 540; // 45 minutes with 5-second intervals
-        let attempts = 0;
-
-        while (attempts < maxAttempts) {
-          try {
-            const pollResponse = await fetch(`https://api.phelix.ai/dev-portal/doc-ai/response?task_id=${taskId}`, {
-              method: 'GET',
-              headers: {
-                'x-access-tokens': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJwdWJsaWNfaWQiOiI5YjdhMzlhOC0yOTdmLTRmMzktODFhMy1kNjI1OTI0ZWE0ODMiLCJleHAiOjE3ODkyMjA4OTF9.Z8MAaI-CrQ15qz5QSBit8m9cwx_4HbsnZknr9C6Cvyc'
-              }
-            });
-
-            const pollData = await pollResponse.json();
-            
-            // Update progress based on polling attempts
-            const progress = Math.min(25 + (attempts / maxAttempts) * 70, 90);
-            updateUploadState({ progress });
-
-            // Show more detailed status updates
-            if (attempts % 12 === 0 && attempts > 0) { // Every minute
-              console.log(`Still processing... ${Math.round(progress)}% complete`);
-            }
-
-            if (pollData.status === 'success') {
-              return pollData;
-            } else if (pollData.status === 'failed' || pollData.status === 'error') {
-              throw new Error(pollData.message || 'Processing failed');
-            } else if (pollData.status === 'processing' || pollData.status === 'pending') {
-              // Continue polling - document is still being processed
-              console.log(`Processing... Attempt ${attempts + 1}/${maxAttempts}`);
-            }
-            
-            // Wait 5 seconds before next poll
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            attempts++;
-            
-          } catch (error) {
-            if (attempts === maxAttempts - 1) {
-              throw error;
-            }
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            attempts++;
-          }
-        }
-        
-        throw new Error('Processing timeout after 45 minutes. Very large documents may take longer to process. Please try again or contact support if the issue persists.');
-      };
-
-      const finalResult = await pollForResults();
-      updateUploadState({ progress: 100 });
+      updateUploadState({ progress: 90 });
 
       setTimeout(() => {
         updateUploadState({
           uploading: false,
           success: true,
-          response: { success: true, data: finalResult }
+          progress: 100,
+          response: { success: true, data: extractedData }
         });
 
-        // Send to Zapier after successful processing
-        sendDataToZapier(finalResult);
+        sendDataToZapier(extractedData);
       }, 500);
 
     } catch (error) {
